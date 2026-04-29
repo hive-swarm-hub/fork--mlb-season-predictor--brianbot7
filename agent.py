@@ -74,8 +74,22 @@ def _prompt_payload(team_state: dict) -> dict:
         checkpoint=team_state.get("checkpoint"),
         league=team_state.get("league"),
     )
+    checkpoint = str(team_state.get("checkpoint", ""))
+    if checkpoint == "all_star":
+        task = (
+            "Project this team's final season wins and outcomes from the All-Star break. "
+            "league_peers lists all teams in this league sorted strongest-to-weakest by projected WAR. "
+            "Weight checkpoint_wins_above_pace alongside projection_blend_war to assess true "
+            "team strength at the break, then calibrate projected_wins and probabilities accordingly."
+        )
+    else:
+        task = (
+            "Project this team's final season wins and outcomes from Opening Day projections. "
+            "league_peers lists all teams in this league sorted strongest-to-weakest by projected WAR — "
+            "use their relative positioning to calibrate where this team ranks in the final standings."
+        )
     return {
-        "task": "Project MLB final standings outcomes from this checkpoint. Use league_peers to calibrate where this team ranks within its league.",
+        "task": task,
         "team_state": team_summary,
         "league_peers": peers,
         "output_schema": {
