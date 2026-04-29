@@ -29,7 +29,7 @@ PEER_KEYS: tuple[str, ...] = (
     "pos_war",
     "sp_war",
     "rp_war",
-    "pythag_win_pct",
+    "pythag_wins_proxy",
     "third_order_win_pct",
     "prev_win_pct",
     "checkpoint_wins_above_pace",
@@ -54,14 +54,29 @@ def _peer_index() -> dict[tuple[int, str, str], list[dict]]:
                 continue
             index.setdefault(key, []).append(_label_safe(row))
     for rows in index.values():
-        rows.sort(key=lambda r: float(r.get("projection_blend_war", 0.0)), reverse=True)
+        rows.sort(
+            key=lambda r: float(r.get("projection_blend_war", 0.0)) + float(r.get("checkpoint_wins_above_pace", 0.0) or 0.0),
+            reverse=True,
+        )
     return index
 
 
 def peer_summary(season: int, checkpoint: str, league: str) -> list[dict]:
     """Return a compact peer summary for the same league/season/checkpoint.
 
-    Each peer is the PEER_KEYS subset, sorted by projection_blend_war desc.
+    Each peer is the PEER_KEYS subset, sorted by projection_blend_war + checkpoint_wins_above_pace desc.
+    pythag_wins_proxy (= pythag_win_pct * 162) is computed and injected so peers
+    are expressed in the same win units as the output contract.
     """
     rows = _peer_index().get((int(season), str(checkpoint), str(league)), [])
-    return [{k: r.get(k) for k in PEER_KEYS if k in r} for r in rows]
+    peers = []
+    for r in rows:
+        peer = {k: r.get(k) for k in PEER_KEYS if k in r}
+        pwp = r.get("pythag_win_pct")
+        if pwp is not None:
+            try:
+                peer["pythag_wins_proxy"] = round(float(pwp) * 162, 1)
+            except (ValueError, TypeError):
+                pass
+        peers.append(peer)
+    return peers
