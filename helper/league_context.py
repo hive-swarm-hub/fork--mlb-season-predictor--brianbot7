@@ -54,14 +54,21 @@ def _peer_index() -> dict[tuple[int, str, str], list[dict]]:
                 continue
             index.setdefault(key, []).append(_label_safe(row))
     for rows in index.values():
-        rows.sort(key=lambda r: float(r.get("projection_blend_war", 0.0)), reverse=True)
+        # For all_star, checkpoint_wins_above_pace is non-zero and reflects actual performance.
+        # Combining with projection_blend_war gives better peer ordering for all_star checkpoint.
+        # For opening_day, cwap=0, so this is identical to the original pure-WAR sort.
+        rows.sort(
+            key=lambda r: float(r.get("projection_blend_war", 0.0)) + float(r.get("checkpoint_wins_above_pace", 0.0) or 0.0),
+            reverse=True,
+        )
     return index
 
 
 def peer_summary(season: int, checkpoint: str, league: str) -> list[dict]:
     """Return a compact peer summary for the same league/season/checkpoint.
 
-    Each peer is the PEER_KEYS subset, sorted by projection_blend_war desc.
+    Peers sorted by projection_blend_war + checkpoint_wins_above_pace desc.
+    For opening_day this equals pure WAR sort; for all_star it weights actual performance.
     """
     rows = _peer_index().get((int(season), str(checkpoint), str(league)), [])
     return [{k: r.get(k) for k in PEER_KEYS if k in r} for r in rows]
