@@ -129,7 +129,6 @@ PLAYER_FEATURE_GROUPS: dict[str, list[str]] = {
 # directly, or point MLB_HARNESS_POLICY_PATH at a JSON override.
 DEFAULT_SELECTED_TEAM_GROUPS: tuple[str, ...] = (
     "projection_war",
-    "rotation_top7",
     "pen_depth",
     "run_quality",
     "schedule_park",

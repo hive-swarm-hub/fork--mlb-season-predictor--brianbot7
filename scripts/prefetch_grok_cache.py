@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -44,26 +45,44 @@ def main() -> None:
         team_states.append(state)
 
     def run_one(state: dict) -> tuple[int, str, str, float]:
-        pred = agent.predict(state)
-        return (
-            int(state["season"]),
-            str(state["checkpoint"]),
-            str(state["team_id"]),
-            float(pred["projected_wins"]),
-        )
+        for attempt in range(3):
+            try:
+                pred = agent.predict(state)
+                return (
+                    int(state["season"]),
+                    str(state["checkpoint"]),
+                    str(state["team_id"]),
+                    float(pred["projected_wins"]),
+                )
+            except Exception as exc:
+                if attempt < 2:
+                    time.sleep(5 * (attempt + 1))
+                else:
+                    raise RuntimeError(
+                        f"failed after 3 attempts for {state.get('team_id')}: {exc}"
+                    ) from exc
+        raise RuntimeError("unreachable")
 
     completed = 0
+    failed = 0
     with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
         futures = [pool.submit(run_one, state) for state in team_states]
         for future in as_completed(futures):
             completed += 1
-            season, checkpoint, team_id, wins = future.result()
+            try:
+                season, checkpoint, team_id, wins = future.result()
+            except Exception as exc:
+                failed += 1
+                print(f"WARN: skipped ({exc})", flush=True)
+                continue
             if completed % 10 == 0 or completed == len(futures):
                 print(
                     f"cached {completed}/{len(futures)} latest={season} "
                     f"{checkpoint} {team_id} wins={wins:.1f}",
                     flush=True,
                 )
+    if failed:
+        print(f"WARNING: {failed} predictions failed and were skipped", flush=True)
 
 
 if __name__ == "__main__":
