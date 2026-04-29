@@ -74,8 +74,13 @@ def _prompt_payload(team_state: dict) -> dict:
         checkpoint=team_state.get("checkpoint"),
         league=team_state.get("league"),
     )
+    this_team_id = str(team_state.get("team_id", ""))
+    for i, peer in enumerate(peers):
+        if str(peer.get("team_id", "")) == this_team_id:
+            team_summary["league_war_rank"] = i + 1  # 1 = strongest by projected WAR
+            break
     return {
-        "task": "Project MLB final standings outcomes from this checkpoint. Use league_peers to calibrate where this team ranks within its league.",
+        "task": "Project MLB final standings outcomes from this checkpoint. league_war_rank shows this team's projected strength rank among its 15 league peers by WAR (1 = projected strongest). Use league_peers to calibrate final standings position.",
         "team_state": team_summary,
         "league_peers": peers,
         "output_schema": {
