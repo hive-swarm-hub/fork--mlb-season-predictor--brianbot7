@@ -53,15 +53,25 @@ def main() -> None:
         )
 
     completed = 0
+    failed = 0
     with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
-        futures = [pool.submit(run_one, state) for state in team_states]
+        futures = {pool.submit(run_one, state): state for state in team_states}
         for future in as_completed(futures):
-            completed += 1
-            season, checkpoint, team_id, wins = future.result()
-            if completed % 10 == 0 or completed == len(futures):
+            state = futures[future]
+            try:
+                season, checkpoint, team_id, wins = future.result()
+                completed += 1
+                if completed % 10 == 0 or completed == len(futures):
+                    print(
+                        f"cached {completed}/{len(futures)} latest={season} "
+                        f"{checkpoint} {team_id} wins={wins:.1f}",
+                        flush=True,
+                    )
+            except Exception as exc:
+                failed += 1
                 print(
-                    f"cached {completed}/{len(futures)} latest={season} "
-                    f"{checkpoint} {team_id} wins={wins:.1f}",
+                    f"WARN failed {state.get('team_id')} s{state.get('season')} "
+                    f"{state.get('checkpoint')}: {type(exc).__name__}: {exc}",
                     flush=True,
                 )
 
