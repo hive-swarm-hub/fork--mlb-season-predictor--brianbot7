@@ -69,9 +69,6 @@ def _prompt_payload(team_state: dict) -> dict:
     """
     team_keys = selected_team_keys()
     team_summary = {key: team_state.get(key) for key in team_keys if key in team_state}
-    blend_war = float(team_state.get("projection_blend_war", 0.0) or 0.0)
-    cwap = float(team_state.get("checkpoint_wins_above_pace", 0.0) or 0.0)
-    team_summary["cwap_adjusted_war"] = round(blend_war + cwap * 0.5, 2)
     peers = peer_summary(
         season=team_state.get("season"),
         checkpoint=team_state.get("checkpoint"),

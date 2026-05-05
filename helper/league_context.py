@@ -26,7 +26,6 @@ CONTEXT_CSVS: tuple[Path, ...] = (
 PEER_KEYS: tuple[str, ...] = (
     "team_id",
     "projection_blend_war",
-    "cwap_adjusted_war",
     "pos_war",
     "sp_war",
     "rp_war",
@@ -53,11 +52,7 @@ def _peer_index() -> dict[tuple[int, str, str], list[dict]]:
                 key = (int(row["season"]), str(row["checkpoint"]), str(row["league"]))
             except (KeyError, ValueError, TypeError):
                 continue
-            safe = _label_safe(row)
-            blend_war = float(safe.get("projection_blend_war", 0.0) or 0.0)
-            cwap = float(safe.get("checkpoint_wins_above_pace", 0.0) or 0.0)
-            safe["cwap_adjusted_war"] = round(blend_war + cwap * 0.5, 2)
-            index.setdefault(key, []).append(safe)
+            index.setdefault(key, []).append(_label_safe(row))
     for rows in index.values():
         rows.sort(key=lambda r: float(r.get("projection_blend_war", 0.0)), reverse=True)
     return index
