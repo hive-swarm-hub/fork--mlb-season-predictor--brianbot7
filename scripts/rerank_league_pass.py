@@ -174,8 +174,8 @@ def main() -> None:
             f"{t['team_id']}={t['projected_wins']:.1f}" for t in sorted(team_data, key=lambda x: -x["projected_wins"])
         ))
 
-        if checkpoint != "all_star":
-            print("  SKIP: opening_day rerank not useful (all cwap=0)")
+        if checkpoint == "all_star":
+            print("  SKIP: all_star already reranked in prior pass")
             continue
 
         reranked = _call_rerank(team_data, checkpoint, league, model, api_key)
