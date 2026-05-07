@@ -72,10 +72,11 @@ def _rerank_prompt(team_data: list[dict], checkpoint: str, league: str) -> str:
     teams_sorted = sorted(team_data, key=lambda t: -t["projected_wins"])
     lines = []
     for t in teams_sorted:
+        pythag_wins = round(t["pythag_win_pct"] * 162, 1)
         lines.append(
             f"  {t['team_id']}: wins={t['projected_wins']:.1f}, "
             f"war={t['projection_blend_war']:.1f}, "
-            f"pythag_pct={t['pythag_win_pct']:.3f}, "
+            f"pythag_pct={t['pythag_win_pct']:.3f} (pythag_wins≈{pythag_wins}), "
             f"cwap={t['checkpoint_wins_above_pace']:+.1f}"
         )
     teams_text = "\n".join(lines)
@@ -84,7 +85,11 @@ def _rerank_prompt(team_data: list[dict], checkpoint: str, league: str) -> str:
         "checkpoint_wins_above_pace (cwap) reflects actual first-half performance vs projections: "
         "positive=outperforming, negative=underperforming. "
         "A high positive cwap (e.g. +8 or above) means the team is substantially outperforming "
-        "their WAR projection and should likely be ranked higher than their WAR alone suggests."
+        "their WAR projection and should likely be ranked higher than their WAR alone suggests. "
+        "IMPORTANT: pythag_wins shows what the team's run differential actually implies for wins. "
+        "When current wins >> pythag_wins, the team may be getting lucky; be conservative about "
+        "pushing them higher. When current wins << pythag_wins with positive cwap, there is a "
+        "strong case to rank them higher."
     ) if checkpoint == "all_star" else (
         "This is opening_day — cwap is always 0 at this checkpoint (no games played)."
     )
@@ -174,8 +179,8 @@ def main() -> None:
             f"{t['team_id']}={t['projected_wins']:.1f}" for t in sorted(team_data, key=lambda x: -x["projected_wins"])
         ))
 
-        if checkpoint == "all_star":
-            print("  SKIP: all_star already reranked in prior pass")
+        if checkpoint != "all_star":
+            print("  SKIP: only all_star rerank is productive")
             continue
 
         reranked = _call_rerank(team_data, checkpoint, league, model, api_key)
