@@ -62,6 +62,7 @@ def _load_group_predictions(
                 "projection_blend_war": float(row.get("projection_blend_war", 0)),
                 "pythag_win_pct": float(row.get("pythag_win_pct", 0.5)),
                 "checkpoint_wins_above_pace": float(row.get("checkpoint_wins_above_pace", 0)),
+                "prev_win_pct": float(row.get("prev_win_pct", 0.5)),
                 "cache_path": CACHE_DIR / f"{_cache_key(state, model)}.json",
             }
         )
@@ -73,11 +74,13 @@ def _rerank_prompt(team_data: list[dict], checkpoint: str, league: str) -> str:
     lines = []
     for t in teams_sorted:
         pythag_wins = round(t["pythag_win_pct"] * 162, 1)
+        prev_wins = round(t["prev_win_pct"] * 162, 1)
         lines.append(
             f"  {t['team_id']}: wins={t['projected_wins']:.1f}, "
             f"war={t['projection_blend_war']:.1f}, "
             f"pythag_pct={t['pythag_win_pct']:.3f} (pythag_wins≈{pythag_wins}), "
-            f"cwap={t['checkpoint_wins_above_pace']:+.1f}"
+            f"cwap={t['checkpoint_wins_above_pace']:+.1f}, "
+            f"prev_wins≈{prev_wins}"
         )
     teams_text = "\n".join(lines)
 
@@ -89,7 +92,10 @@ def _rerank_prompt(team_data: list[dict], checkpoint: str, league: str) -> str:
         "IMPORTANT: pythag_wins shows what the team's run differential actually implies for wins. "
         "When current wins >> pythag_wins, the team may be getting lucky; be conservative about "
         "pushing them higher. When current wins << pythag_wins with positive cwap, there is a "
-        "strong case to rank them higher."
+        "strong case to rank them higher. "
+        "prev_wins is last season's win count — a team with prev_wins > 88 has demonstrated "
+        "quality and may be temporarily underperforming; give them extra credit even if current "
+        "WAR/pythag is mediocre. A team with high cwap but low prev_wins may be an overachiever."
     ) if checkpoint == "all_star" else (
         "This is opening_day — cwap is always 0 at this checkpoint (no games played)."
     )
@@ -198,6 +204,14 @@ def main() -> None:
                 continue
             new_wins = clamp(reranked[tid], 40.0, 122.0)
             old_wins = team["projected_wins"]
+
+            # Protect teams with high cwap from reductions: they have demonstrated
+            # sustained outperformance and the model tends to over-correct them down
+            # based on WAR alone, ignoring the actual win signal.
+            cwap = float(team.get("checkpoint_wins_above_pace", 0.0))
+            if cwap >= 8.0 and new_wins < old_wins:
+                new_wins = old_wins
+
             delta = new_wins - old_wins
             if abs(delta) < 0.01:
                 continue
