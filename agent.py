@@ -152,15 +152,6 @@ def _normalize_prediction(raw: dict) -> dict:
 
 
 def _call_grok(team_state: dict, trace: dict | None = None) -> dict:
-    api_key = os.getenv("XAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("XAI_API_KEY is required; this task has no local fallback")
-
-    try:
-        from openai import OpenAI
-    except Exception as exc:
-        raise RuntimeError("openai package is required to call the Grok-compatible API") from exc
-
     model = os.getenv("XAI_MODEL", DEFAULT_MODEL)
     key = _cache_key(team_state, model)
     cache_path = CACHE_DIR / f"{key}.json"
@@ -175,6 +166,15 @@ def _call_grok(team_state: dict, trace: dict | None = None) -> dict:
             trace["source"] = "grok_cache"
             trace["model_prediction"] = prediction
         return prediction
+
+    api_key = os.getenv("XAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("XAI_API_KEY is required; this task has no local fallback")
+
+    try:
+        from openai import OpenAI
+    except Exception as exc:
+        raise RuntimeError("openai package is required to call the Grok-compatible API") from exc
 
     client = OpenAI(
         api_key=api_key,
